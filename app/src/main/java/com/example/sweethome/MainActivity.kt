@@ -33,6 +33,7 @@ class MainActivity : ComponentActivity() {
             permissionManager.savePermissionStatus(true)
             Log.d("Permission", "Audio recording permission granted")
             startAudioService()
+            setUpContent(true)
         } else {
             // 권한 거부 시
             permissionManager.savePermissionStatus(false)
@@ -43,7 +44,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
         permissionManager = PermissionManager(this)
 
         // 음성 권한 확인
@@ -51,12 +51,16 @@ class MainActivity : ComponentActivity() {
             requestAudioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
         } else {
             startAudioService()
+            setUpContent(true)
         }
+    }
 
+    private fun setUpContent(isRecording: Boolean) {
         setContent {
             SweetHomeTheme {
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     MainScreen(
+                        isRecording = isRecording,
                         onStartAudio = { startAudioService() },
                         onStopAudio = { stopAudioService() }
                     )

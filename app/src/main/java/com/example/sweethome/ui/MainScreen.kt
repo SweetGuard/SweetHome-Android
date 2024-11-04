@@ -27,12 +27,15 @@ import com.example.sweethome.ui.theme.SweetHomeTheme
 
 @Composable
 fun MainScreen(
+    isRecording: Boolean,
     onStartAudio: () -> Unit,
     onStopAudio: () -> Unit
 ) {
-    var isRecording by remember { mutableStateOf(false) }
-    var statusMessage by remember { mutableStateOf("음성을 수신 중...") }
+    var currentRecordingState by remember { mutableStateOf(isRecording) }
     var showStopDialog by remember { mutableStateOf(false) }
+    var statusMessage by remember { mutableStateOf(
+        if (isRecording) "음성을 수신 중..."
+        else "수신 대기 중...") }
 
     if (showStopDialog) {
         AlertDialog(
@@ -41,7 +44,7 @@ fun MainScreen(
             text = { Text("음성 수신을 정말로 중지하시겠습니까?") },
             confirmButton = {
                 TextButton(onClick = {
-                    isRecording = false
+                    currentRecordingState = false
                     statusMessage = "녹음 대기 중..."
                     onStopAudio()
                     showStopDialog = false
@@ -71,7 +74,7 @@ fun MainScreen(
                 if (isRecording) {
                     showStopDialog = true
                 } else {
-                    isRecording = true
+                    currentRecordingState = true
                     statusMessage = "음성 수신 중..."
                     onStartAudio()
                 }
@@ -93,6 +96,6 @@ fun MainScreen(
 @Composable
 fun MainScreenPreview() {
     SweetHomeTheme {
-        MainScreen({}, {})
+        MainScreen(isRecording = true, onStartAudio = {}, onStopAudio = {})
     }
 }
