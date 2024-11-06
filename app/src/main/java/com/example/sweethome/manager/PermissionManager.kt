@@ -1,4 +1,4 @@
-package com.example.sweethome
+package com.example.sweethome.manager
 
 import android.content.Context
 import android.content.SharedPreferences

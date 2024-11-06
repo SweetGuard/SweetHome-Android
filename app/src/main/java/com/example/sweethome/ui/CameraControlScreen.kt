@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -31,7 +32,6 @@ fun CameraControlScreen(
     onNavigateBack: () -> Unit
 ) {
     val backPressedDispatcher = LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
-    var showToggleDialog by remember { mutableStateOf(false) }
 
     DisposableEffect(backPressedDispatcher) {
         val callback = object : OnBackPressedCallback(true) {
@@ -61,27 +61,16 @@ fun CameraControlScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         Button(
-            onClick = onFetchCameraStatus,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 8.dp)
-        ) {
-            Text("카메라 상태 확인")
-        }
-        
-        Button(
-            onClick = { showToggleDialog = true},
+            onClick = { onToggleCamera(!isCameraOn) },
+            colors = ButtonDefaults.buttonColors(
+                containerColor = if (isCameraOn) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            ),
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 8.dp)
         ) {
             Text(if (isCameraOn) "카메라 끄기" else "카메라 켜기")
         }
-
-//        if (showToggleDialog) {
-//            AlertDialog(onDismissRequest = { /*TODO*/ }) {
-//
-//            }
-//        }
     }
 }

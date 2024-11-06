@@ -4,6 +4,7 @@ import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import org.json.JSONObject
 import java.lang.Exception
 import java.net.HttpURLConnection
 import java.net.URL
@@ -14,7 +15,7 @@ class CameraRepository(private val serverUrl: String) {
 
     fun toggleCamera(turnOn: Boolean, onResult: (Boolean) -> Unit) {
         coroutineScope.launch {
-            val endpoint = if (turnOn) "/start" else "/stop"
+            val endpoint = if (turnOn) "/camera/start" else "/camera/stop"
             val url = URL("$serverUrl$endpoint")
 
             (url.openConnection() as HttpURLConnection).apply {
@@ -32,13 +33,16 @@ class CameraRepository(private val serverUrl: String) {
     fun checkCameraStatus(onStatus: (Boolean) -> Unit) {
         coroutineScope.launch {
             try {
-                val url = URL("$serverUrl/camera/check")
+                val url = URL("$serverUrl/camera-check")
                 (url.openConnection() as HttpURLConnection).apply {
                     requestMethod = "GET"
-                    val response = inputStream.bufferedReader().readText().toBoolean()
+                    Log.d("CameraRepository", "Response Code: $responseCode, Message: $responseMessage")
+                    val response = inputStream.bufferedReader().readText()
                     disconnect()
-                    onStatus(response)
-                    Log.d("CameraRepository", response.toString())
+                    val jsonResponse = JSONObject(response)
+                    val state = jsonResponse.getBoolean("state")
+                    onStatus(state)
+                    Log.d("CameraRepository", state.toString())
                 }
             } catch (e: Exception) {
                 e.printStackTrace()

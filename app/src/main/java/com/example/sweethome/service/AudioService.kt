@@ -17,11 +17,11 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.example.sweethome.BuildConfig
 import com.example.sweethome.R
-import com.example.sweethome.utils.AudioManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
@@ -30,12 +30,6 @@ import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 import okio.ByteString
-import java.io.DataOutputStream
-import java.io.File
-import java.io.FileOutputStream
-import java.lang.Exception
-import java.net.HttpURLConnection
-import java.net.URL
 import java.util.concurrent.TimeUnit
 
 class AudioService : Service() {
@@ -120,13 +114,15 @@ class AudioService : Service() {
             .build()
 
         val request = Request.Builder().url(
-            "ws://192.168.0.184:8000/ws/audio").build()
+            BuildConfig.WS_SERVER_URL
+        ).build()
         webSocket = client.newWebSocket(request, object : WebSocketListener() {
+
             override fun onOpen(webSocket: WebSocket, response: Response) {
                 Log.d("AudioService", "WebSocket 연결 성공")
             }
 
-            // 상황 종료 시 서버에서 음성 수신 중지 요청
+            // 상황 발생 시 음성 재생
             override fun onMessage(webSocket: WebSocket, text: String) {
                 Log.d("AudioService", "서버로부터 메시지 수신: $text")
                 when (text) {
@@ -140,10 +136,15 @@ class AudioService : Service() {
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                 Log.e("AudioService", "WebSocket 연결 실패: ${t.message}")
+                // 일정 시간 후 재연결 시도
+                scope.launch {
+                    delay(5000)
+                    connectToWebSocket()
+                }
             }
 
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
-                Log.d("AudioService", "WebSocket 연결 종료: ${reason}")
+                Log.d("AudioService", "WebSocket 연결 종료: $reason")
             }
         })
     }
@@ -163,7 +164,7 @@ class AudioService : Service() {
     private fun sendAudioToServer(audioData: ByteArray) {
         if (this::webSocket.isInitialized) {
             webSocket.send(ByteString.of(*audioData))
-            Log.d("AudioService", "Websocket을 통해 녹음 데이터 전송")
+//            Log.d("AudioService", "Websocket을 통해 녹음 데이터 전송")
         } else {
             Log.e("AudioService", "Websocket 연결되지 않음, 전송 실패")
         }

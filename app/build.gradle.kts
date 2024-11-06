@@ -23,12 +23,14 @@ android {
     buildTypes {
         debug {
 //            buildConfigField("String", "SERVER_URL", "\"http://125.131.208.226:8000\"")
-            buildConfigField("String", "SERVER_URL", "\"http://10.0.2.2:8000\"")
+            buildConfigField("String", "SERVER_URL", "\"http://192.168.0.184:8000\"")
+            buildConfigField("String", "WS_SERVER_URL", "\"ws://192.168.0.184:8000/ws/audio\"")
             isMinifyEnabled = false
         }
         release {
 //            buildConfigField("String", "SERVER_URL", "\"http://125.131.208.226:8000\"")
-            buildConfigField("String", "SERVER_URL", "\"http://10.0.2.2:8000\"")
+            buildConfigField("String", "SERVER_URL", "\"http://192.168.0.184:8000\"")
+            buildConfigField("String", "WS_SERVER_URL", "\"ws://192.168.0.184:8000/ws/audio\"")
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             isMinifyEnabled = false
         }

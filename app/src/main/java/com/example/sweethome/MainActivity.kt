@@ -7,39 +7,33 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
-import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
+import com.example.sweethome.manager.CameraManager
 import com.example.sweethome.repository.CameraRepository
 import com.example.sweethome.ui.CameraControlScreen
 import com.example.sweethome.ui.MainScreen
 import com.example.sweethome.ui.RecordingControlScreen
 import com.example.sweethome.ui.theme.SweetHomeTheme
+import com.example.sweethome.manager.PermissionManager
+import com.example.sweethome.manager.RecordingManager
+import com.example.sweethome.ui.UIHandler
 import com.example.sweethome.utils.AudioManager
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.launch
-import java.lang.Exception
-import java.net.HttpURLConnection
-import java.net.URL
 
 class MainActivity : ComponentActivity() {
     private lateinit var permissionManager: PermissionManager
-    private lateinit var cameraRepository: CameraRepository
+    private lateinit var recordingManager: RecordingManager
     private lateinit var audioManager: AudioManager
+    private lateinit var cameraManager: CameraManager
     private var isRecording by mutableStateOf(false)
     private var isCameraOn by mutableStateOf(false)
 
@@ -49,7 +43,8 @@ class MainActivity : ComponentActivity() {
         // Initialization
         permissionManager = PermissionManager(this)
         audioManager = AudioManager(this)
-        cameraRepository = CameraRepository(BuildConfig.SERVER_URL)
+        cameraManager = CameraManager(CameraRepository(BuildConfig.SERVER_URL))
+        recordingManager = RecordingManager(this, audioManager)
 
         // 음성 권한 확인
         checkAudioPermission()
@@ -60,25 +55,8 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    var currentScreen by remember { mutableStateOf("main") }
-
-                    when (currentScreen) {
-                        "main" -> MainScreen(
-                            onNavigateToRecording = { currentScreen = "recording" },
-                            onNavigateToCamera = { currentScreen = "camera" }
-                        )
-                        "recording" -> RecordingControlScreen(
-                            isRecording = isRecording,
-                            onToggleRecording = { toggleRecording(it) },
-                            onNavigateBack = { currentScreen = "main" }
-                        )
-                        "camera" -> CameraControlScreen (
-                            isCameraOn = isCameraOn,
-                            onFetchCameraStatus = { checkCameraStatus() },
-                            onToggleCamera = { toggleCamera(it) },
-                            onNavigateBack = { currentScreen = "main" }
-                        )
-                    }
+                    val uiHandler = remember { UIHandler() }
+                    AppContent(uiHandler)
                 }
             }
         }
@@ -92,14 +70,18 @@ class MainActivity : ComponentActivity() {
             != PackageManager.PERMISSION_GRANTED) {
             permissionManager.requestAudioPermission (
                 onPermissionGranted = {
-                    audioManager.startAudioService()
-                    isRecording = true
+                    if (recordingManager.getSavedRecordingState()) {
+                        recordingManager.toggleRecording(true)
+                        isRecording = true
+                    }
                 },
                 onPermissionDenied = { showPermissionRationaleDialog() }
             )
         } else {
-            audioManager.startAudioService()
-            isRecording = true
+            if (recordingManager.getSavedRecordingState()) {
+                recordingManager.toggleRecording(true)
+                isRecording = true
+            }
         }
     }
 
@@ -133,8 +115,8 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO)
             == PackageManager.PERMISSION_GRANTED) {
-            if (!isRecording) {
-                audioManager.startAudioService()
+            if (!isRecording && recordingManager.getSavedRecordingState()) {
+                recordingManager.toggleRecording(true)
                 isRecording = true
             }
         }
@@ -142,18 +124,41 @@ class MainActivity : ComponentActivity() {
 
     private fun toggleRecording(start: Boolean) {
         isRecording = start
-        if (start) audioManager.startAudioService() else audioManager.stopAudioService()
+        recordingManager.toggleRecording(start)
     }
 
     private fun toggleCamera(turnOn: Boolean) {
-        cameraRepository.toggleCamera(turnOn) { success ->
-            if (success) isCameraOn = turnOn
+        cameraManager.toggleCamera(turnOn) { success ->
+            isCameraOn = success
         }
     }
 
     private fun checkCameraStatus() {
-        cameraRepository.checkCameraStatus { status ->
+        cameraManager.checkCameraStatus { status ->
             isCameraOn = status
+        }
+    }
+
+    @Composable
+    fun AppContent(uiHandler: UIHandler) {
+        when (uiHandler.currentScreen.value) {
+            "main" -> MainScreen(
+                onNavigateToRecording = { uiHandler.navigateToRecording() },
+                onNavigateToCamera = {
+                    checkCameraStatus()
+                    uiHandler.navigateToCamera() }
+            )
+            "recording" -> RecordingControlScreen(
+                isRecording = isRecording,
+                onToggleRecording = { toggleRecording(it) },
+                onNavigateBack = { uiHandler.navigateBackToMain() }
+            )
+            "camera" -> CameraControlScreen (
+                isCameraOn = isCameraOn,
+                onFetchCameraStatus = { checkCameraStatus() },
+                onToggleCamera = { toggleCamera(it) },
+                onNavigateBack = { uiHandler.navigateBackToMain() }
+            )
         }
     }
 }
