@@ -9,6 +9,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.media.AudioFormat
 import android.media.AudioRecord
+import android.media.MediaPlayer
 import android.media.MediaRecorder
 import android.os.Build
 import android.os.IBinder
@@ -47,6 +48,7 @@ class AudioService : Service() {
     private var audioRecord: AudioRecord? = null
     private val scope = CoroutineScope(Dispatchers.IO + Job())
     private lateinit var webSocket: WebSocket
+    private var mediaPlayer: MediaPlayer? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -118,7 +120,7 @@ class AudioService : Service() {
             .build()
 
         val request = Request.Builder().url(
-            "ws://192.168.56.1:8000/ws/audio").build()
+            "ws://192.168.0.184:8000/ws/audio").build()
         webSocket = client.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
                 Log.d("AudioService", "WebSocket 연결 성공")
@@ -127,12 +129,13 @@ class AudioService : Service() {
             // 상황 종료 시 서버에서 음성 수신 중지 요청
             override fun onMessage(webSocket: WebSocket, text: String) {
                 Log.d("AudioService", "서버로부터 메시지 수신: $text")
-                if (text == "STOP") stopSelf()
-            }
-
-            override fun onMessage(webSocket: WebSocket, bytes: ByteString) {
-                // server에서 음성 파일을 냈을 때 처리
-                /* TODO - 괜찮으세요? etc */
+                when (text) {
+                    "play_warning_message" -> playAudio(R.raw.warning_message_korean)
+                    "play_danger_message" -> playAudio(R.raw.danger)
+                    "play_fine_message" -> playAudio(R.raw.fine)
+                    "play_no_response_message" -> playAudio(R.raw.no_response)
+                    "STOP" -> stopSelf()
+                }
             }
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
@@ -143,6 +146,15 @@ class AudioService : Service() {
                 Log.d("AudioService", "WebSocket 연결 종료: ${reason}")
             }
         })
+    }
+
+    /**
+     * 위험 상황 후속 처리 - 음성 재생
+     */
+    private fun playAudio(audioResId: Int) {
+        mediaPlayer?.release()
+        mediaPlayer = MediaPlayer.create(this, audioResId)
+        mediaPlayer?.start()
     }
 
     /**
@@ -157,7 +169,7 @@ class AudioService : Service() {
         }
     }
 
-    fun stopRecording() {
+    private fun stopRecording() {
         audioRecord?.stop()
         audioRecord?.release()
         audioRecord = null

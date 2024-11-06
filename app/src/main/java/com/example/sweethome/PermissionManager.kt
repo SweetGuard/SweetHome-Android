@@ -10,7 +10,7 @@ class PermissionManager(private val context: Context) {
     private val sharedPreferences: SharedPreferences =
         context.getSharedPreferences("PermissionPrefs", Context.MODE_PRIVATE)
 
-    fun savePermissionStatus(isGranted: Boolean) {
+    private fun savePermissionStatus(isGranted: Boolean) {
         sharedPreferences.edit().putBoolean("AUDIO_PERMISSION_GRANTED", isGranted).apply()
     }
 

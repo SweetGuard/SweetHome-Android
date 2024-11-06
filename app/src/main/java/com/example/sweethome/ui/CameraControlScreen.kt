@@ -1,5 +1,7 @@
 package com.example.sweethome.ui
 
+import androidx.activity.OnBackPressedCallback
+import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -12,6 +14,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -24,9 +27,24 @@ import androidx.compose.ui.unit.dp
 fun CameraControlScreen(
     isCameraOn: Boolean,
     onFetchCameraStatus: () -> Unit,
-    onToggleCamera: (Boolean) -> Unit
+    onToggleCamera: (Boolean) -> Unit,
+    onNavigateBack: () -> Unit
 ) {
+    val backPressedDispatcher = LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
     var showToggleDialog by remember { mutableStateOf(false) }
+
+    DisposableEffect(backPressedDispatcher) {
+        val callback = object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                onNavigateBack()
+            }
+        }
+        backPressedDispatcher?.addCallback(callback)
+
+        onDispose {
+            callback.remove()
+        }
+    }
 
     Column(
         modifier = Modifier

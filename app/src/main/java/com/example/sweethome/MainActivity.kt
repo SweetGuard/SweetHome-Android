@@ -75,7 +75,8 @@ class MainActivity : ComponentActivity() {
                         "camera" -> CameraControlScreen (
                             isCameraOn = isCameraOn,
                             onFetchCameraStatus = { checkCameraStatus() },
-                            onToggleCamera = { toggleCamera(it) }
+                            onToggleCamera = { toggleCamera(it) },
+                            onNavigateBack = { currentScreen = "main" }
                         )
                     }
                 }
