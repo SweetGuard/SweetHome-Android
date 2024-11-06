@@ -1,6 +1,7 @@
 package com.example.sweethome.ui
 
 import android.app.AlertDialog
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -21,81 +22,60 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.R
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.DialogProperties
 import com.example.sweethome.ui.theme.SweetHomeTheme
 
 @Composable
 fun MainScreen(
-    isRecording: Boolean,
-    onStartAudio: () -> Unit,
-    onStopAudio: () -> Unit
-) {
-    var currentRecordingState by remember { mutableStateOf(isRecording) }
-    var showStopDialog by remember { mutableStateOf(false) }
-    var statusMessage by remember { mutableStateOf(
-        if (isRecording) "음성을 수신 중..."
-        else "수신 대기 중...") }
-
-    if (showStopDialog) {
-        AlertDialog(
-            onDismissRequest = { showStopDialog = false },
-            title = { Text("음성 수신 중지") },
-            text = { Text("음성 수신을 정말로 중지하시겠습니까?") },
-            confirmButton = {
-                TextButton(onClick = {
-                    currentRecordingState = false
-                    statusMessage = "녹음 대기 중..."
-                    onStopAudio()
-                    showStopDialog = false
-                }) {
-                    Text("중지")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showStopDialog = false }) {
-                    Text("취소")
-                }
-            }
-        )
-    }
-
+    onNavigateToRecording: () -> Unit,
+    onNavigateToCamera: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp),
+            .padding(24.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(text = statusMessage, style = MaterialTheme.typography.headlineSmall)
+//        Image(
+//            painter = painterResource(id = R.drawable.ic_logo),
+//            contentDescription = "Logo",
+//            modifier = Modifier.height(80.dp))
         Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            text = "Sweet Home",
+            fontSize = 24.sp,
+            color = Color.Black
+        )
         Button(
-            onClick = {
-                if (isRecording) {
-                    showStopDialog = true
-                } else {
-                    currentRecordingState = true
-                    statusMessage = "음성 수신 중..."
-                    onStartAudio()
-                }
-            },
+            onClick = onNavigateToRecording,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 32.dp),
+                .padding(vertical = 8.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = if (isRecording) MaterialTheme.colorScheme.error
-                else MaterialTheme.colorScheme.primary
+                containerColor = Color(0xFFFE9191),
+                contentColor = Color.Black
             )
         ) {
-            Text(if (isRecording) "녹음 중지" else "녹음 시작")
+            Text("녹음 상태 컨트롤")
         }
-    }
-}
 
-@Preview(showBackground = true)
-@Composable
-fun MainScreenPreview() {
-    SweetHomeTheme {
-        MainScreen(isRecording = true, onStartAudio = {}, onStopAudio = {})
+        Button(
+            onClick = onNavigateToCamera,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color(0xFFFE9191),
+                contentColor = Color.Black
+            )
+        ) {
+            Text("카메라 상태 컨트롤")
+        }
     }
 }

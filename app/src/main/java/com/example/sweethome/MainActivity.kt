@@ -16,67 +16,90 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import com.example.sweethome.repository.CameraRepository
+import com.example.sweethome.ui.CameraControlScreen
 import com.example.sweethome.ui.MainScreen
+import com.example.sweethome.ui.RecordingControlScreen
 import com.example.sweethome.ui.theme.SweetHomeTheme
+import com.example.sweethome.utils.AudioManager
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
+import java.lang.Exception
+import java.net.HttpURLConnection
+import java.net.URL
 
 class MainActivity : ComponentActivity() {
     private lateinit var permissionManager: PermissionManager
-
-    // 권한 요청을 처리할 런처
-    private val requestAudioPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { isGranted: Boolean ->
-        if (isGranted) {
-            // 권한 허용 시
-            permissionManager.savePermissionStatus(true)
-            Log.d("Permission", "Audio recording permission granted")
-            startAudioService()
-            setUpContent(true)
-        } else {
-            // 권한 거부 시
-            permissionManager.savePermissionStatus(false)
-            Log.d("Permission", "Audio Recording permission denied")
-            showPermissionRationaleDialog()
-        }
-    }
+    private lateinit var cameraRepository: CameraRepository
+    private lateinit var audioManager: AudioManager
+    private var isRecording by mutableStateOf(false)
+    private var isCameraOn by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Initialization
         permissionManager = PermissionManager(this)
+        audioManager = AudioManager(this)
+        cameraRepository = CameraRepository(BuildConfig.SERVER_URL)
 
         // 음성 권한 확인
-        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-            requestAudioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-        } else {
-            startAudioService()
-            setUpContent(true)
-        }
-    }
+        checkAudioPermission()
 
-    private fun setUpContent(isRecording: Boolean) {
         setContent {
             SweetHomeTheme {
-                Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                    MainScreen(
-                        isRecording = isRecording,
-                        onStartAudio = { startAudioService() },
-                        onStopAudio = { stopAudioService() }
-                    )
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    var currentScreen by remember { mutableStateOf("main") }
+
+                    when (currentScreen) {
+                        "main" -> MainScreen(
+                            onNavigateToRecording = { currentScreen = "recording" },
+                            onNavigateToCamera = { currentScreen = "camera" }
+                        )
+                        "recording" -> RecordingControlScreen(
+                            isRecording = isRecording,
+                            onToggleRecording = { toggleRecording(it) },
+                            onNavigateBack = { currentScreen = "main" }
+                        )
+                        "camera" -> CameraControlScreen (
+                            isCameraOn = isCameraOn,
+                            onFetchCameraStatus = { checkCameraStatus() },
+                            onToggleCamera = { toggleCamera(it) }
+                        )
+                    }
                 }
             }
         }
     }
 
-    private fun startAudioService() {
-        val serviceIntent = Intent(this, AudioService::class.java)
-        startService(serviceIntent)
-    }
-
-    private fun stopAudioService() {
-        val serviceIntent = Intent(this, AudioService::class.java)
-        stopService(serviceIntent)
+    /**
+     * 녹음 권한 확인하기
+     */
+    private fun checkAudioPermission() {
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO)
+            != PackageManager.PERMISSION_GRANTED) {
+            permissionManager.requestAudioPermission (
+                onPermissionGranted = {
+                    audioManager.startAudioService()
+                    isRecording = true
+                },
+                onPermissionDenied = { showPermissionRationaleDialog() }
+            )
+        } else {
+            audioManager.startAudioService()
+            isRecording = true
+        }
     }
 
     /**
@@ -100,20 +123,36 @@ class MainActivity : ComponentActivity() {
             show()
         }
     }
-}
 
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-            text = "Hello $name!",
-            modifier = modifier
-    )
-}
+    /**
+     * 설정 화면에서 마이크 권한을 허용한 후 다시 앱 화면으로 돌아왔을 때,
+     * 권한 체크 후 백그라운드에서 녹음 시작
+     */
+    override fun onResume() {
+        super.onResume()
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO)
+            == PackageManager.PERMISSION_GRANTED) {
+            if (!isRecording) {
+                audioManager.startAudioService()
+                isRecording = true
+            }
+        }
+    }
 
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    SweetHomeTheme {
-        Greeting("Android")
+    private fun toggleRecording(start: Boolean) {
+        isRecording = start
+        if (start) audioManager.startAudioService() else audioManager.stopAudioService()
+    }
+
+    private fun toggleCamera(turnOn: Boolean) {
+        cameraRepository.toggleCamera(turnOn) { success ->
+            if (success) isCameraOn = turnOn
+        }
+    }
+
+    private fun checkCameraStatus() {
+        cameraRepository.checkCameraStatus { status ->
+            isCameraOn = status
+        }
     }
 }

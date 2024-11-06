@@ -21,9 +21,16 @@ android {
     }
 
     buildTypes {
-        release {
+        debug {
+//            buildConfigField("String", "SERVER_URL", "\"http://125.131.208.226:8000\"")
+            buildConfigField("String", "SERVER_URL", "\"http://10.0.2.2:8000\"")
             isMinifyEnabled = false
+        }
+        release {
+//            buildConfigField("String", "SERVER_URL", "\"http://125.131.208.226:8000\"")
+            buildConfigField("String", "SERVER_URL", "\"http://10.0.2.2:8000\"")
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            isMinifyEnabled = false
         }
     }
     compileOptions {
@@ -35,6 +42,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.1"
