@@ -13,7 +13,7 @@ class RecordingManager(private val context: Context, private val audioManager: A
     /**
      * 녹음 상태를 SharedPreferences에 저장
      */
-    fun saveRecordingState(state: Boolean) {
+    private fun saveRecordingState(state: Boolean) {
         sharedPreferences.edit().putBoolean("IS_RECORDING", state).apply()
     }
 
