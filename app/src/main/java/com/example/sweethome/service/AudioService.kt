@@ -14,9 +14,11 @@ import android.media.MediaRecorder
 import android.os.Build
 import android.os.IBinder
 import android.util.Log
+import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import com.example.sweethome.BuildConfig
 import com.example.sweethome.R
+import com.example.sweethome.utils.AlarmManagerHelper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -54,12 +56,13 @@ class AudioService : Service() {
     private lateinit var webSocket: WebSocket
     private var mediaPlayer: MediaPlayer? = null
     private val client = OkHttpClient.Builder().readTimeout(3, TimeUnit.SECONDS).build()
+    private lateinit var alarmManagerHelper: AlarmManagerHelper
 
     override fun onCreate() {
         super.onCreate()
+        alarmManagerHelper = AlarmManagerHelper(this)
         startForeground(1, createNotification())
         initiateAudioRecording()
-//        startRecording()
     }
 
     /**
@@ -152,9 +155,9 @@ class AudioService : Service() {
 
         if (status == 200 && code == 200100) {
             Log.d("AudioService", message)
-            playAudio(R.raw.warning_message_korean)
-
             webSocket.close(1000, "위험 상황 발생 후 연결 종료")
+
+            playAudio(R.raw.warning_message_korean)
 
             scope.launch {
                 delay(10000) // 메시지 재생 시간 고려
@@ -200,9 +203,6 @@ class AudioService : Service() {
             }
         }
 
-        audioRecord?.stop()
-        audioRecord?.release()
-
         return outputStream.toByteArray()
     }
 
@@ -221,7 +221,34 @@ class AudioService : Service() {
 
         client.newCall(request).enqueue(object : Callback {
             override fun onResponse(call: Call, response: Response) {
-                Log.d("AudioService", "서버에 녹음 파일 전송 성공")
+                if (response.isSuccessful) {
+                    Log.d("AudioService", "서버에 녹음 파일 전송 성공")
+
+                    val responseData = response.body?.string()
+
+                    responseData?.let {
+                        try {
+                            val jsonResponse = JSONObject(it)
+                            val code = jsonResponse.optInt("code")
+                            val message = jsonResponse.optString("message")
+                            Log.d("AudioService", "Code: $code, Message: $message")
+                            when (code) {
+                                200101, 200103 -> {
+                                    playAudio(if (code == 200101) R.raw.danger else R.raw.no_response)
+                                    alarmManagerHelper.stopRecordingAndScheduleRestart()
+                                }
+                                200102 -> {
+                                    playAudio(R.raw.fine)
+                                }
+                                else -> Log.d("AudioService", "Undefined Code: $code")
+                            }
+                        } catch (e: Exception) {
+                            Log.e("AudioService", "응답 JSON 파싱 오류: ${e.message}")
+                        }
+                    }
+                } else {
+                    Log.e("AudioService", "서버 응답 실패: 코드 ${response.code}")
+                }
             }
 
             override fun onFailure(call: Call, e: IOException) {
@@ -230,38 +257,19 @@ class AudioService : Service() {
         })
     }
 
-    /**
-     * 녹음 시작 & websocket 연결
-     */
-//    private fun startRecording() {
-//        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
-//            if (audioRecord == null) {
-//                audioRecord = AudioRecord(
-//                    MediaRecorder.AudioSource.MIC, SAMPLE_RATE,
-//                    AudioFormat.CHANNEL_IN_MONO,
-//                    AudioFormat.ENCODING_PCM_16BIT, BUFFER_SIZE
-//                )
-//                audioRecord?.startRecording()
-//                connectToWebSocket()
-//
-//                scope.launch {
-//                    val buffer = ByteArray(BUFFER_SIZE)
-//                    while (isActive && audioRecord?.recordingState == AudioRecord.RECORDSTATE_RECORDING) {
-//                        val read = audioRecord?.read(buffer, 0, buffer.size) ?: 0
-//                        if (read > 0) {
-//                            sendAudioToServer(buffer.copyOf(read))
-//                        }
-//                    }
-//                }
-//            }
-//        } else {
-//            Log.e("AudioService", "음성 녹음을 시작할 수 없습니다. 권한이 필요합니다.")
-//            /*
-//            * TODO
-//            * - 권한 설정 함수로 이동
-//            * */
-//        }
-//    }
+    private fun pauseRecordingForDuration(durationMillis: Long) {
+        Log.e("AudioService", "녹음을 멈추어야 합니다.")
+        // 녹음 일시 중지
+        audioRecord?.stop()
+        audioRecord?.release()
+        audioRecord = null
+
+        scope.launch {
+            delay(durationMillis) // 지정한 시간 동안 대기 (1시간)
+            // 녹음 재개
+            initiateAudioRecording()
+        }
+    }
 
     private fun stopRecording() {
         audioRecord?.stop()
